@@ -13257,8 +13257,28 @@ div#notebook {
     <span class="n">confs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">confs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">AggregateErrorMetric</span><span class="p">(</span><span class="n">errs</span><span class="p">,</span> <span class="n">confs</span><span class="p">)</span>
 
-<span class="c1">#Algorithm functions start here and are below</span>
-<span class="k">def</span> <span class="nf">BandpassFilter</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">pass_band</span><span class="p">,</span> <span class="n">fs</span><span class="p">):</span>
+<span class="c1">#--------------------Algorithm functions start here and are below-------------------------#</span>
+ <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pulse rate estimatation algorithm</span>
+<span class="sd">        TThis algorithm calculates an estimated pulse rate from raw photoplethysmogram(PPG) data in the presence of noise motion in the x,y,            and z axis from an accelerometer. The PPG and accelerometer data used with this algorithm was from the Troika dataset, and consists            of PPG and accelerometer data from 12 subjects wearing a wrist device while walking, running and during a brief cooldown on a                  treadmill. The reference labels for the data represents the subjects&#39; pulse rate in beats per minute(bpm) and was calculated in eight          second windows, incremented every 2 seconds. The algorithm attempts to mimic this calculation, by first bandpass filtering the PPG and</span>
+<span class="sd">        aggregated accelerometer signals, and then calculating the estimated pulse rate by computing the fast fourier transform(fft) for the           filtered PPG and accelerometer signals. After which, the frequency where the highest magnitude PPG signal exists is determined. This           frequency is multiplied by 60 seconds to obtain the estimated pulse rate. Next the estimated confidence that the frequency used to             determine the estimated pulse rate is calculated. This is done by dividing the spectral energy at that frequency by the total spectral         energy in the spectrum. The above process is performed in eight second windows on the PPG signal data, these                                   windows are incremented every 2 seconds. The algorithm also calculates the mean absolute error for each pulse rate estimate by                 first interpolating the estimated pulse rate to the reference label and then computing the mean absolute error between this                    interpolated pulse rate and the reference pulse rate. The algorithm returns a tuple of two numpy arrays, one numpy array is for                the mean absolute errors and the other is for the confidence estimates.</span>
+
+<span class="sd">        The functions that define the core of the algorithm are below and are as follows:</span>
+<span class="sd">            band_pass_filter                    - a function that returns a signal that has been band passed filtered</span>
+<span class="sd">            moving_pulse_confidence_estimate    - a function to determine the pulse rate and confidence estimate in a given 8 second window                                                      incrementing every 2 seconds</span>
+<span class="sd">            pulse_confidence_calc               - a function to calculate both the estimated pulse rate and confidence</span>
+<span class="sd">            calc_errors                         - a function to calculate both mean absolute error between the estimated pulse rate and the                                                      reference label from the Troika dataset</span>
+
+<span class="sd">            RunPulseRateAlgorithm               - From the starter code, this function calls the band_pass_filter and                                                                            moving_pulse_confidence_estimate to return mean absolute errors between the estimateed pulse</span>
+<span class="sd">                                                  rate and the reference labels from the dataset along with confidence estimates for the</span>
+<span class="sd">                                                  estimated pulse rate</span>
+
+
+<span class="sd">    Returns:</span>
+<span class="sd">        errors: (np.array): numpy array of mean absolute errors between the estimateed pulse rate</span>
+<span class="sd">        confidences: (np.array): confidence estimates for the estimated pulse rate</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<span class="k">def</span> <span class="nf">band_pass_filter</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">pass_band</span><span class="p">,</span> <span class="n">fs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Bandpass Filter.</span>
 <span class="sd">    </span>
 <span class="sd">    Args:</span>
@@ -13392,6 +13412,16 @@ div#notebook {
     <span class="k">return</span> <span class="n">maes</span>
 
 <span class="k">def</span> <span class="nf">RunPulseRateAlgorithm</span><span class="p">(</span><span class="n">data_fl</span><span class="p">,</span> <span class="n">ref_fl</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This is the main algorithm function, it loads a data file and reference label file from the Troika dataset, aggregates the accelerometer signals into a single signal, and then bandpass filters the PPG and aggregated accelerometer signals. These filtered signals, the reference label and sampling frequency are then inputted into the moving_pulse_confidence_estimate function. The output from the moving_pulse_confidence_estimate function which is a numpy array of mean abolute errors between the estimated heart rate and reference label and a numpy array of confidence estimates for the estimated pulse rates is returned from this function</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        data_fl: (str): a str of the filepath to the data file containing PPG and accelerometer data</span>
+<span class="sd">        ref_fl: (str) a str of the filepath to the file reference pulse rate</span>
+<span class="sd">  </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        errors:(np.array) : a numpy array of mean absolute errors between the estimated pulse rates and the reference pulse rates.</span>
+<span class="sd">        confidences: (np.array) : a numpy array of confidence estimates for the estimated pulse rate</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Load data and ref using LoadTroikaDataFile and LoadTroikaRefFile</span>
     <span class="n">ppg</span><span class="p">,</span> <span class="n">accx</span><span class="p">,</span> <span class="n">accy</span><span class="p">,</span> <span class="n">accz</span> <span class="o">=</span> <span class="n">LoadTroikaDataFile</span><span class="p">(</span><span class="n">data_fl</span><span class="p">)</span>
     <span class="n">ref</span> <span class="o">=</span> <span class="n">LoadTroikaRefFile</span><span class="p">(</span><span class="n">ref_fl</span><span class="p">)</span>
@@ -13406,8 +13436,8 @@ div#notebook {
     <span class="c1"># The passband was determined by looking at plots of the fft for the ppg and acc signals</span>
     <span class="c1"># and from the paper provided in the readme.md</span>
     <span class="n">pass_band</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
-    <span class="n">f_ppg_signal</span> <span class="o">=</span> <span class="n">BandpassFilter</span><span class="p">(</span><span class="n">ppg</span><span class="p">,</span> <span class="n">pass_band</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
-    <span class="n">f_accelos_signal</span> <span class="o">=</span> <span class="n">BandpassFilter</span><span class="p">(</span><span class="n">sum_accelos</span><span class="p">,</span> <span class="n">pass_band</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
+    <span class="n">f_ppg_signal</span> <span class="o">=</span> <span class="n">band_pass_filter</span><span class="p">(</span><span class="n">ppg</span><span class="p">,</span> <span class="n">pass_band</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
+    <span class="n">f_accelos_signal</span> <span class="o">=</span> <span class="n">band_pass_filter</span><span class="p">(</span><span class="n">sum_accelos</span><span class="p">,</span> <span class="n">pass_band</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
 
     <span class="c1"># Compute pulse rate estimates and estimation confidence.</span>
     <span class="n">errors</span><span class="p">,</span> <span class="n">confidences</span> <span class="o">=</span> <span class="n">moving_pulse_confidence_estimate</span><span class="p">(</span><span class="n">f_ppg_signal</span><span class="p">,</span> <span class="n">f_accelos_signal</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
